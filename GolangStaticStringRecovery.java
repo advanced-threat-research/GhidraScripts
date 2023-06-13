@@ -60,7 +60,7 @@ public class GolangStaticStringRecovery extends GhidraScript {
 			 * strings are only present in the data sections
 			 */
 			if (block.getName().equalsIgnoreCase(".data") == false
-					&& block.getName().equalsIgnoreCase(".rodata") == false) {
+					|| block.getName().equalsIgnoreCase(".rodata") == false) {
 				continue;
 			}
 
