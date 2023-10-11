@@ -16,6 +16,8 @@ import ghidra.program.model.listing.Data;
 import ghidra.program.model.listing.Instruction;
 import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.scalar.Scalar;
+import ghidra.program.model.util.CodeUnitInsertionException;
+import ghidra.util.exception.CancelledException;
 
 public class GolangDynamicStringRecovery extends GhidraScript {
 
@@ -103,11 +105,18 @@ public class GolangDynamicStringRecovery extends GhidraScript {
 	 */
 	private Instruction createString(Instruction instruction, Address address, Integer length) {
 		try {
+			//Get the data' starting point
+			Data checkData = getDataContaining(address);
+			if (checkData != null) {
+				clearListing(address);
+				
+			}
 			// Create the ASCII string at the given address with the given length
 			Data data = createAsciiString(address, length);
 			// Gets the newly created string as a String object
 			String ascii = (String) data.getValue();
-			// Optionally print the address (clickable in Ghidra's console) along with the value
+			// Optionally print the address (clickable in Ghidra's console) along with the
+			// value
 			log("0x" + Long.toHexString(address.getOffset()) + " : \"" + ascii + "\"");
 			// Increment the number of recovered dynamic strings
 			stringCount++;
@@ -131,10 +140,12 @@ public class GolangDynamicStringRecovery extends GhidraScript {
 	}
 
 	/**
-	 * Gets all memory blocks which have a name equal to .text, disregarding the
-	 * used casing. The list can be empty, but never null.
+	 * Gets all memory blocks which have a name equal to .text or __text (used in PE
+	 * and ELF, and Mach-O files respectively), disregarding the used casing. The
+	 * list can be empty, but never null.
 	 * 
-	 * @return all .text named memory blocks, disregarding the used casing
+	 * @return all .text or __text named memory blocks (used in PE and ELF, and
+	 *         Mach-O files respectively), disregarding the used casing
 	 */
 	private List<MemoryBlock> getTextMemoryBlocks() {
 		// Declare and initialise the list
@@ -143,7 +154,7 @@ public class GolangDynamicStringRecovery extends GhidraScript {
 		// Iterate over all blocks
 		for (MemoryBlock block : getMemoryBlocks()) {
 			// Check if the name is equal, disregarding the case
-			if (block.getName().equalsIgnoreCase(".text")) {
+			if (block.getName().equalsIgnoreCase(".text") || block.getName().equalsIgnoreCase("__text")) {
 				// If it is equal, add it to the list
 				blocks.add(block);
 			}

@@ -17,7 +17,7 @@ import ghidra.util.exception.DuplicateNameException;
 import ghidra.util.exception.InvalidInputException;
 
 public class GolangFunctionRecovery extends GhidraScript {
-	
+
 	/**
 	 * A boolean which defines if logging should be enabled. When prioritising
 	 * speed, one might not be interested in getting all messages, but rather only
@@ -128,7 +128,7 @@ public class GolangFunctionRecovery extends GhidraScript {
 			log("PE file found");
 			// The declaration and initialisation of potential pclntab magic values
 			String[] pclntabMagicValues = { "\\xfb\\xff\\xff\\xff\\x00\\x00", "\\xfa\\xff\\xff\\xff\\x00\\x00",
-					"\\xf0\\xff\\xff\\xff\\x00\\x00" };
+					"\\xf0\\xff\\xff\\xff\\x00\\x00", "\\xf1\\xff\\xff\\xff\\x00\\x00" };
 			// Get the gopclntab address by magic value
 			pclntab = getGopclntabByMagicValue(pclntabMagicValues);
 		} else if (executableFormat.equalsIgnoreCase("Executable and Linking Format (ELF)")) { // Check if the
@@ -137,7 +137,12 @@ public class GolangFunctionRecovery extends GhidraScript {
 			// Optionally print a message to state the file type which has been detected
 			log("ELF file found");
 			// Get the gopclntab address by section name
-			pclntab = getGopclntabBySectionName();
+			pclntab = getGopclntabBySectionName(".gopclntab");
+		} else if (executableFormat.equalsIgnoreCase("Mac OS X Mach-O")) {
+			// Optionally print a message to state the file type which has been detected
+			log("Mach-O file found");
+			// Get the gopclntab address by section name
+			pclntab = getGopclntabBySectionName("__gopclntab");
 		} else {
 			/*
 			 * Print an error message informing the user of the failure to find a suitable
@@ -157,8 +162,8 @@ public class GolangFunctionRecovery extends GhidraScript {
 		}
 
 		/*
-		 * If execution continues, the pclntab was found. Optionally print a message to inform the
-		 * user of the progress
+		 * If execution continues, the pclntab was found. Optionally print a message to
+		 * inform the user of the progress
 		 */
 		log(String.format("pclntab found at 0x%x!", pclntab.getOffset()));
 
@@ -184,8 +189,10 @@ public class GolangFunctionRecovery extends GhidraScript {
 		} else {
 			// No matching magic value was found, of which the user is informed
 			println("Unable to determine the .gopclntab magic value, so the assumption is made that it is Go 1.2 compatible");
-			// Recover function names for functions in Golang version 1.15 through version
-			// 1.2
+			/*
+			 * Recover function names for functions in Golang version 1.15 through version
+			 * 1.2
+			 */
 			recoverFunctionNamesGo12(pclntab);
 		}
 
@@ -195,7 +202,7 @@ public class GolangFunctionRecovery extends GhidraScript {
 		 */
 		println("Total number of functions renamed and/or created: " + functionCount);
 	}
-	
+
 	/**
 	 * A wrapper function for the
 	 * {@link ghidra.app.script.GhidraScript#println(String)} which is only called
@@ -264,11 +271,11 @@ public class GolangFunctionRecovery extends GhidraScript {
 	 * 
 	 * @return the starting address of the ".gopclntab" section
 	 */
-	private Address getGopclntabBySectionName() {
+	private Address getGopclntabBySectionName(String sectionName) {
 		// Iterate over all memory blocks within the program
 		for (MemoryBlock memoryBlock : getMemoryBlocks()) {
 			// Check if the block's name equals (ignoring the casing) the gopclntab section
-			if (memoryBlock.getName().equalsIgnoreCase(".gopclntab")) {
+			if (memoryBlock.getName().equalsIgnoreCase(sectionName)) {
 				// Return the starting address of this section if it is found
 				return memoryBlock.getStart();
 			}
@@ -416,11 +423,8 @@ public class GolangFunctionRecovery extends GhidraScript {
 			 * next usable address
 			 */
 			Address namePointer = pclntab.add(nameOffset + pointerSize);
-			// Get the address of the name, based on the pointer
-			/*
-			 * TODO is this a mistake as it uses getInt instead of getInt OR getLong based
-			 * on the pointer size?
-			 */
+			// Get the address of the name, based on the pointer, which is always 32 bits in
+			// size
 			Address nameAddress = pclntab.add(getInt(namePointer));
 			// Address nameAddress = pclntab.add(namePointer.getOffset());
 
@@ -511,11 +515,7 @@ public class GolangFunctionRecovery extends GhidraScript {
 			p = p.add(pointerSize);
 			// Get the function name pointer
 			namePointer = functionTab.add(functionDataOffset + pointerSize);
-			// Get the address of the function name
-			/*
-			 * TODO check if the getInt needs to just get the offset from the name pointer
-			 * instead?
-			 */
+			// Get the address of the function name, which is always 32 bits in size
 			nameAddress = functionNameTab.add(getInt(namePointer));
 
 			/*
@@ -594,28 +594,19 @@ public class GolangFunctionRecovery extends GhidraScript {
 				break;
 			}
 
-			// Get the address for the current function
-			/*
-			 * TODO check if the split needs to be made here as well, since it uses getInt
-			 * instead
-			 */
+			// Get the address for the current function, which is always 32 bits in size
 			functionAddress = currentProgram.getAddressFactory()
 					.getAddress(Long.toHexString(getInt(p) + textStart).trim());
 			// Adjust p
 			p = p.add(functabFieldSize);
 
 			// Get the function data offset
-			// TODO is this a mistake since its an int in all cases?
 			functionDataOffset = getInt(p);
 			// Adjust p
 			p = p.add(functabFieldSize);
 			// Get the pointer to the name
 			namePointer = functionTab.add(functionDataOffset + functabFieldSize);
-			// Get the pointer to the address
-			/*
-			 * TODO check if the address is correct since it uses getInt instead of a
-			 * pointer value check
-			 */
+			// Get the pointer to the address, which is always 32 bits
 			nameAddress = functionNameTab.add(getInt(namePointer));
 
 			/*

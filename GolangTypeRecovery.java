@@ -215,6 +215,8 @@ public class GolangTypeRecovery extends GhidraScript {
 																								// ELF format
 			// Initialise the objects array
 			objects = scanElfFile();
+		} else if (executableFormat.equalsIgnoreCase("Mac OS X Mach-O")) {
+			objects = scanMachoFile();
 		} else {
 			// Inform the analyst of the error
 			printerr("Incorrect file format: \"" + executableFormat + "\"");
@@ -414,24 +416,6 @@ public class GolangTypeRecovery extends GhidraScript {
 		printerr("Section \"" + sectionName + "\" not found!");
 		// Return null in the case of an error
 		return null;
-	}
-
-	/**
-	 * Gets the start address for each section named <code>.typelink</code>
-	 * 
-	 * @return the start addresses for each section named <code>.typelink</code>
-	 */
-	private Address[] getTypeLink() {
-		return getSection(".typelink");
-	}
-
-	/**
-	 * Gets the start address for the <code>.rodata</code> section
-	 * 
-	 * @return the start address for the <code>.rodata</code> section
-	 */
-	private Address getRodata() {
-		return getSection(".rodata")[0];
 	}
 
 	/**
@@ -641,7 +625,7 @@ public class GolangTypeRecovery extends GhidraScript {
 		 * Verify the module data by ensuring the offset from the module data matches
 		 * the offset of the .text block
 		 */
-		if (text != null && text.getOffset() == textBlock.getStart().getOffset()) {
+		if (text != null && textBlock != null && text.getOffset() == textBlock.getStart().getOffset()) {
 			log("Module data found!");
 			return true;
 		}
@@ -769,9 +753,17 @@ public class GolangTypeRecovery extends GhidraScript {
 		if (magic.equalsIgnoreCase("\\xfb\\xff\\xff\\xff\\x00\\x00")) { // Golang 1.2 magic value
 			offset = 25;
 			offset2 = 30;
-		} else {
+		} else if (magic.equalsIgnoreCase("\\xfa\\xff\\xff\\xff\\x00\\x00")
+				|| magic.equalsIgnoreCase("\\xf0\\xff\\xff\\xff\\x00\\x00")) { // Golang 1.16 and Golang 1.18
+																				// respectively
 			offset = 35;
 			offset2 = 42;
+		} else if (magic.equalsIgnoreCase("\\xf1\\xff\\xff\\xff\\x00\\x00")) { // Golang 1.20
+			offset = 37;
+			offset2 = 44;
+		} else {
+			printerr("No pclntab magic value matched, thus making the offsets unknown!");
+			return null;
 		}
 
 		// Get the required values
@@ -1100,6 +1092,10 @@ public class GolangTypeRecovery extends GhidraScript {
 
 		// Save the results in four variables
 		Object[] typeLinksArray = getTypeLinks(moduleData, magic);
+		// If an error occurred earlier on, return early
+		if (typeLinksArray == null) {
+			return null;
+		}
 		Address typeStart = (Address) typeLinksArray[0];
 		// Address typeEnd = (Address) typeLinksArray[1];
 		Address typeLinksStart = (Address) typeLinksArray[2];
@@ -1130,9 +1126,49 @@ public class GolangTypeRecovery extends GhidraScript {
 	 */
 	private Address[] scanElfFile() {
 		// Get the type link array
-		Address[] typeLinkArray = getTypeLink();
+		Address[] typeLinkArray = getSection(".typelink");
 		// Get the read-only data section
-		Address typeStart = getRodata();
+		Address typeStart = getSection(".rodata")[0];
+
+		/*
+		 * If either the type link or read-only sections cannot be found, the analyst is
+		 * informed and null is returned by the respective function. To cut the
+		 * execution short, this function simply returns null to its caller.
+		 */
+		if (typeLinkArray == null || typeStart == null) {
+			return null;
+		}
+
+		// Store the start and end in two variables
+		Address typelinksStart = typeLinkArray[0];
+		Address typeLinksEnd = typeLinkArray[1];
+		typeLinksEnd = typeLinksEnd.add(1);
+
+		// Return the values in an array
+		return new Address[] { typelinksStart, typeLinksEnd, typeStart };
+	}
+
+	/**
+	 * Fetches the typeLinksStart, typeLinksEnd, and typeStart addresses from the
+	 * binary if it is a MACH-O file.<br>
+	 * <br>
+	 * Returns an array of Address objects which contains the following values, in
+	 * order:<br>
+	 * <ol>
+	 * <li>typeLinksStart</li>
+	 * <li>typeLinksEnd</li>
+	 * <li>typeStart</li>
+	 * </ol>
+	 * 
+	 * @param pclntab_magic the potential magic values for the pclntab
+	 * @return the typelinks start, the typelinks end (plus one byte), and type
+	 *         start address
+	 */
+	private Address[] scanMachoFile() {
+		// Get the type link array
+		Address[] typeLinkArray = getSection("__typelink");
+		// Get the read-only data section
+		Address typeStart = getSection("__rodata")[0];
 
 		/*
 		 * If either the type link or read-only sections cannot be found, the analyst is
@@ -1183,7 +1219,7 @@ public class GolangTypeRecovery extends GhidraScript {
 				} catch (Exception ex) {
 					// Ignore exceptions
 				}
-				// Increment the address
+				// Increment the address, which is always 32 bits
 				p = p.add(4);
 			}
 		}

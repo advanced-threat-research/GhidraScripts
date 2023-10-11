@@ -15,7 +15,7 @@ import ghidra.program.model.mem.MemoryAccessException;
 import ghidra.program.model.mem.MemoryBlock;
 
 public class GolangStaticStringRecovery extends GhidraScript {
-	
+
 	/**
 	 * A boolean which defines if logging should be enabled. When prioritising
 	 * speed, one might not be interested in getting all messages, but rather only
@@ -57,10 +57,14 @@ public class GolangStaticStringRecovery extends GhidraScript {
 		for (MemoryBlock block : getMemoryBlocks()) {
 			/*
 			 * If the block name is not .data or .rodata, it can be skipped, as static
-			 * strings are only present in the data sections
+			 * strings are only present in the data sections.
+			 * 
+			 * The __data and __rodata section names are used in Macho-O binaries.
 			 */
 			if (block.getName().equalsIgnoreCase(".data") == false
-					&& block.getName().equalsIgnoreCase(".rodata") == false) {
+					&& block.getName().equalsIgnoreCase(".rodata") == false
+					&& block.getName().equalsIgnoreCase("__data") == false
+					&& block.getName().equalsIgnoreCase("__rodata") == false) {
 				continue;
 			}
 
