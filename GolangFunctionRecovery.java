@@ -325,7 +325,7 @@ public class GolangFunctionRecovery extends GhidraScript {
 		// If the function name is null, blank, or empty
 		if (functionName == null || functionName.isBlank()) {
 			// Print an error
-			printerr(String.format("No function name found at 0x%x!", Long.toHexString(nameAddress.getOffset())));
+			printerr(String.format("No function name found at 0x%s!", Long.toHexString(nameAddress.getOffset())));
 			// Return from the function
 			return;
 		}
