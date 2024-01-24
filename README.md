@@ -19,6 +19,9 @@ Once the refresh action has completed, the script should be in the list, and can
 ### Golang related scripts
 Simply run the scripts and observe the output in the Console Log. Error messages are indicative of what went wrong (i.e. a non supported file format, or an issue finding a specific data structure). Non-error messages are indicative of what the script has changed and updated.
 
+### MalpediaFlossedCheck.java
+With this script, one can compare the [Malpedia FLOSSED](https://github.com/malpedia/malpedia-flossed) data set with the strings from the current program. Strings that do not occur in Malpedia's data set, are likely to be more uncommon, and likely warrant some more inspection, as they can be useful. Download and extract the [Malpedia FLOSSED](https://github.com/malpedia/malpedia-flossed) JSON file, and remember its location, as its required during the script's runtime.
+
 ### Sharem.java
 Configure [SHAREM](https://github.com/Bw3ll/sharem/) to run [headless](https://github.com/Bw3ll/sharem/wiki/2.-Quick-Start-Analysis#configuration-file), and edit the script to contain the correct path to both Python and SHAREM's main Python file. Additionally, ensure the correct parameter for the shellcode's bitness is used, along with the correct path to the shellcode sample. Once all is configured, simply run the Ghidra script and wait until SHAREM finishes its execution. There is no progress bar for SHAREM's execution. Once it is done, the code will load the JSON file and start annotating the given offsets in Ghidra, which will be visible in the Console Log.
 
