@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Set;
 
 import ghidra.app.script.GhidraScript;
+import ghidra.features.base.values.GhidraValuesMap;
 import ghidra.features.bsim.query.BSimClientFactory;
 import ghidra.features.bsim.query.FunctionDatabase;
 import ghidra.features.bsim.query.GenSignatures;
@@ -32,6 +33,7 @@ import ghidra.features.bsim.query.protocol.SimilarityResult;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.FunctionIterator;
 import ghidra.program.model.symbol.SourceType;
+import ghidra.util.MessageType;
 import ghidra.util.exception.DuplicateNameException;
 import ghidra.util.exception.InvalidInputException;
 
@@ -250,27 +252,56 @@ public class BsimFunctionRenamer extends GhidraScript {
 
 	@Override
 	public void run() throws Exception {
-		// TODO replace with askString
-		String databaseUrl = "file:/C:\\Users\\malwa\\bsim_databases\\bsim.golang-runtimes.windows.386-amd64.h2.medium-nosize";
+		/*
+		 * Define variables with the text to display in the askValues menu
+		 */
+		String valueDatabaseUrl = "Database URL (excluding extensions)";
+		String valueSimilarityBound = "Lower similarity bound";
+		String valueMaximumBsimMatches = "Maximum BSim matches per function";
+		String valueRenameSingleMatches = "Rename single matches";
+		String valueRenameMultiMatches = "Rename multi-matches";
+		String valueRenameGenericMatches = "Rename generic matches with the given prefix";
+		String valueCustomPrefix = "Custom prefix to rename multi-matches with (leave empty if generic matches aren't meant to be renamed)";
 
-		// TODO replace with askDouble
-		SIMILARITY_BOUND = 0.7;
+		// Declare and initiate the mapping
+		GhidraValuesMap values = new GhidraValuesMap();
 
-		// TODO replace with askInt
-		MAXIMUM_BSIM_MATCHES_PER_FUNCTION = 20;
+		// Provide the values and types for the askValues call
+		values.defineString(valueDatabaseUrl);
+		values.defineDouble(valueSimilarityBound, 0.7);
+		values.defineInt(valueMaximumBsimMatches, 20);
+		values.defineBoolean(valueRenameSingleMatches, true);
+		values.defineBoolean(valueRenameMultiMatches, true);
+		values.defineBoolean(valueRenameGenericMatches, true);
+		values.defineString(valueCustomPrefix);
 
-		// TODO replace with askYesNo
-		RENAME_SINGLE_MATCH = true;
+		// Ensure a database has been provided
+		values.setValidator((valueMap, status) -> {
+			if (valueMap.hasValue(valueDatabaseUrl) == false) {
+				status.setStatusText("A database must be provided!", MessageType.ERROR);
+				return false;
+			}
+			return true;
+		});
 
-		// TODO replace with askYesNo
-		RENAME_MULTI_MATCH = true;
+		// Request all values from the user
+		values = askValues("Please enter the requested values", null, values);
 
-		// TODO replace with askYesNo
-		RENAME_GENERIC_MATCH = true;
+		// "file:/C:\\Users\malwa\bsim_databases\bsim.golang-runtimes.windows.386-amd64.h2.medium-nosize
+		String databaseUrl = "file:/" + values.getString(valueDatabaseUrl);
+
+		SIMILARITY_BOUND = values.getDouble(valueSimilarityBound);
+
+		MAXIMUM_BSIM_MATCHES_PER_FUNCTION = values.getInt(valueMaximumBsimMatches);
+
+		RENAME_SINGLE_MATCH = values.getBoolean(valueRenameSingleMatches);
+
+		RENAME_MULTI_MATCH = values.getBoolean(valueRenameMultiMatches);
+
+		RENAME_GENERIC_MATCH = values.getBoolean(valueRenameGenericMatches);
 
 		if (RENAME_GENERIC_MATCH) {
-			// TODO replace with askString
-			CUSTOM_PREFIX = "golang_";
+			CUSTOM_PREFIX = values.getString(valueCustomPrefix);
 		}
 
 		/*
