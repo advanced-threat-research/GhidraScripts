@@ -5,6 +5,7 @@
 //@menupath
 //@toolbar
 
+
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressOutOfBoundsException;
@@ -242,6 +243,7 @@ public class GolangFunctionRecovery extends GhidraScript {
 
 			// Iterate over all results
 			for (Address pclntab : pclntabs) {
+				log("Potential pclntab found at : " + Long.toHexString(pclntab.getOffset()));
 				/*
 				 * Bytes have been found based on the given magic value
 				 */
@@ -285,6 +287,44 @@ public class GolangFunctionRecovery extends GhidraScript {
 	}
 
 	/**
+	 * Gets the length of the ascii string, from the given address until the first
+	 * null byte (0x00).
+	 * 
+	 * @param start the address to start looking for the null byte (0x00)
+	 * @return the number of characters, excluding the null byte (0x00)
+	 * @throws MemoryAccessException
+	 */
+	private int getAsciiStringLength(Address start) throws MemoryAccessException {
+		/*
+		 * Declare and initialise the length variable, which is to be returned from this
+		 * function
+		 */
+		int length = 0;
+
+		/*
+		 * Iterate until no address is available anymore, or until the while-loop is
+		 * broken
+		 */
+		while (start != null) {
+			// Get the byte at the given address
+			byte b = getByte(start);
+			// Check if the byte's value is null
+			if (b == 0) {
+				// Break the loop if it is
+				break;
+			}
+			// If the byte isn't null, increment the length
+			length++;
+			// Additionally, increment the address by fetching the next
+			start = start.add(1);
+			// Jump to the top of the while-loop
+		}
+
+		// Return the length of the string, once the while-loop is broken
+		return length;
+	}
+
+	/**
 	 * Creates a new function, or renames the function if it already exists, based
 	 * on the newly found name, which is obtained via the name address variable
 	 * 
@@ -306,8 +346,10 @@ public class GolangFunctionRecovery extends GhidraScript {
 		// If no data resides at this address
 		if (functionNameData == null) {
 			try {
+				int length = getAsciiStringLength(nameAddress);
+				clearListing(nameAddress, nameAddress.add(length));
 				// Create an ASCII string within Ghidra
-				functionNameData = createAsciiString(nameAddress);
+				functionNameData = createAsciiString(nameAddress, length);
 			} catch (Exception e) {
 				// Print an error if the ASCII string creation fails
 				printerr(String.format("Unable to create an ASCII string at 0x%x!", nameAddress.getOffset()));
@@ -337,20 +379,36 @@ public class GolangFunctionRecovery extends GhidraScript {
 		if (func != null) {
 			// Get the old name
 			String functionNameOld = func.getName();
-			// Rename the function with the new name, without spaces
-			func.setName(functionName.replace(" ", ""), SourceType.USER_DEFINED);
-			// Optionally print the function name change, along with the location
-			log("Function renamed from \"" + functionNameOld + "\" to \"" + functionName + "\", located at 0x"
-					+ Long.toHexString(functionAddress.getOffset()));
+			// Get the new name, removing spaces
+			String functionNameNew = functionName.replaceAll(" ", "").replaceAll("Â", "").replaceAll("·", "");
+
+			/*
+			 * Replacing the function with a name which already exists, throws a
+			 * ghidra.util.exception.DuplicateNameException. This check avoids this
+			 * exception by only replacing a function name if the old and new name are not
+			 * the same.
+			 */
+			if (functionNameOld.equalsIgnoreCase(functionNameNew) == false) {
+				// Change the function name
+				try {
+					func.setName(functionNameNew, SourceType.USER_DEFINED);
+				} catch (DuplicateNameException ex) {
+					func.setName(functionNameNew + "_", SourceType.USER_DEFINED);
+				}
+				// Optionally print the renamed function
+				log("Function renamed from \"" + functionNameOld + "\" to \"" + functionNameNew + "\", located at 0x"
+						+ Long.toHexString(functionAddress.getOffset()));
+				// Increment the function count
+				functionCount++;
+			}
 		} else {
 			// If no function exists at the given address, create one
 			func = createFunction(functionAddress, functionName);
 			// Optionally print the function name and address
 			log("Function \"" + functionName + "\" created at 0x" + Long.toHexString(functionAddress.getOffset()));
+			// Increment the function count
+			functionCount++;
 		}
-
-		// Increment the function count
-		functionCount++;
 	}
 
 	/**
