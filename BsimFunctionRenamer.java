@@ -124,13 +124,14 @@ public class BsimFunctionRenamer extends GhidraScript {
 		// Convert the function's casing to lower
 		String lower = function.getName().toLowerCase();
 		/*
-		 * If the function does not start with "fun_", equals the default entrypoint
+		 * If the function does not start with "fun_", equals the default entry point
 		 * ("entry") or is a thunk function, it is to be skipped. These functions can be
 		 * skipped since they're irrelevant for the matching algorithm and would only
 		 * consume resources and computation without yielding any results. As such, it
 		 * is more efficient to skip them.
 		 */
-		if (lower.startsWith("fun_") == false || lower.equals("entry") || lower.startsWith("thunk_FUN_")) {
+		if (lower.startsWith("fun_") == false || lower.equals("entry") || lower.startsWith("thunk_FUN_")
+				|| function.isThunk() || function.isExternal()) {
 			return;
 		}
 
@@ -190,6 +191,12 @@ public class BsimFunctionRenamer extends GhidraScript {
 					// Declare the required fields for local processing
 					String executable = executableRecord.getNameExec();
 					String functionName = functionDescription.getFunctionName();
+
+					// Ignore matches which are unknown functions
+					if (functionName.startsWith("FUN_")) {
+						continue;
+					}
+
 					String architecture = executableRecord.getArchitecture();
 					double similarity = similarityNote.getSimilarity();
 					double significance = similarityNote.getSignificance();
@@ -255,7 +262,7 @@ public class BsimFunctionRenamer extends GhidraScript {
 		/*
 		 * Define variables with the text to display in the askValues menu
 		 */
-		String valueDatabaseUrl = "Database URL (excluding extensions)";
+		String valueDatabaseUrl = "The complete database URL (excluding extensions)";
 		String valueSimilarityBound = "Lower similarity bound";
 		String valueMaximumBsimMatches = "Maximum BSim matches per function";
 		String valueRenameSingleMatches = "Rename single matches";
@@ -285,10 +292,22 @@ public class BsimFunctionRenamer extends GhidraScript {
 		});
 
 		// Request all values from the user
-		values = askValues("Please enter the requested values", null, values);
+		values = askValues("Please provide the requested values", null, values);
 
 		// "file:/C:\\Users\malwa\bsim_databases\bsim.golang-runtimes.windows.386-amd64.h2.medium-nosize
-		String databaseUrl = "file:/" + values.getString(valueDatabaseUrl);
+		String databaseUrl = "file:";
+		String providedDatabaseUrl = values.getString(valueDatabaseUrl);
+
+		/*
+		 * If the URL starts with a slash, it is a Unix file system, meaning the path
+		 * already starts with a slash. If this is not the case, it is a Windows file
+		 * system, which starts with a letter, which is then the slash needs to be
+		 * prepended prior to the disk drive letter.
+		 */
+		if (providedDatabaseUrl.startsWith("/") == false) {
+			databaseUrl += "/";
+		}
+		databaseUrl += providedDatabaseUrl;
 
 		SIMILARITY_BOUND = values.getDouble(valueSimilarityBound);
 
@@ -422,8 +441,15 @@ public class BsimFunctionRenamer extends GhidraScript {
 					 * comment at the top
 					 */
 					if (RENAME_SINGLE_MATCH || RENAME_MULTI_MATCH || RENAME_GENERIC_MATCH) {
-						comment = "Old name: " + oldName;
-						setComment(matchHolder.getLocalFunction(), comment, true);
+						/*
+						 * If the custom prefix isn't left empty and if the old name does not already
+						 * start with the given custom prefix, the old name is added in the comment.
+						 * Otherwise, the old name doesn't need to be added as it is already present.
+						 */
+						if (CUSTOM_PREFIX.isBlank() == false && oldName.startsWith(CUSTOM_PREFIX) == false) {
+							comment = "Old name: " + oldName;
+							setComment(matchHolder.getLocalFunction(), comment, true);
+						}
 					}
 					/*
 					 * If there is only a single match, and single matches are to be renamed
