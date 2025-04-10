@@ -382,6 +382,12 @@ public class GolangFunctionRecovery extends GhidraScript {
 			// Get the new name, removing spaces
 			String functionNameNew = functionName.replaceAll(" ", "").replaceAll("Â", "").replaceAll("·", "");
 
+			// Check if the length of functionNameNew exceeds 2000 characters
+			if (functionNameNew.length() > 2000) {
+			    // Truncate functionNameNew to the first 1997 characters and append "..." to indicate truncation
+			    functionNameNew = functionNameNew.substring(0, 1997) + "...";
+			}
+			
 			/*
 			 * Replacing the function with a name which already exists, throws a
 			 * ghidra.util.exception.DuplicateNameException. This check avoids this
