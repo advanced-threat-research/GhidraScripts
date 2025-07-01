@@ -16,6 +16,15 @@ Within that menu, one can click on the green plus to add a folder to the list of
 
 Once the refresh action has completed, the script should be in the list, and can be searched for using the textbox next to the filter label. To execute a script, simply double click it, or press the green play button within the Script Manager.
 
+### Automagic
+This script is used to tie multiple other scripts together in order to further automate the automatic analysis, depending its configuration. It allows the loading of additional FIDBs, the usage of multiple BSim databases along wit hthe BSim renaming script, the usage of GhidrAI, ColouriseByComplexity, and other helper scripts. You can find more about this script in this [blog](https://www.trellix.com/blogs/research/automagic-reverse-engineering/).
+
+### GhidrAI
+A script to interact with a LLM proxy and rename functions and variables and summarise functions.
+
+### ColouriseByComplexity
+This script will colourise function calls in the disassembly listing depending on their complexity. If the function is complex, the colour will be dark red. If the function is not complex, it will be light red. The colour ranges between dark and light red where the most complex function will be the darkest and the least complex function will be the lightest colour red.
+
 ### Golang related scripts
 Simply run the scripts and observe the output in the Console Log. Error messages are indicative of what went wrong (i.e. a non supported file format, or an issue finding a specific data structure). Non-error messages are indicative of what the script has changed and updated.
 
