@@ -23,7 +23,7 @@ This script is used to tie multiple other scripts together in order to further a
 A script to interact with a LLM proxy and rename functions and variables and summarise functions.
 
 ### ColouriseByComplexity
-This script will colourise function calls in the disassembly listing depending on their complexity. If the function is complex, the colour will be dark red. If the function is not complex, it will be light red. The colour ranges between dark and light red where the most complex function will be the darkest and the least complex function will be the lightest colour red.
+This script will colourise function calls in the disassembly listing depending on their complexity. If the function is complex, the colour will be bright red. If the function is not complex, it will be dark red. The colour ranges between dark and bright red where the most complex function will be the brightest and the least complex function will be the darkest colour red.
 
 ### Golang related scripts
 Simply run the scripts and observe the output in the Console Log. Error messages are indicative of what went wrong (i.e. a non supported file format, or an issue finding a specific data structure). Non-error messages are indicative of what the script has changed and updated.
